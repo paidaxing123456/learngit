@@ -64,7 +64,6 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr
 pcl::octree::OctreePointCloudSearch<pcl::PointXYZI>::Ptr
     all_octree(new pcl::octree::OctreePointCloudSearch<pcl::PointXYZI>(0.05));
 
-//定义了一个函数 kbhit()，用于检测键盘输入是否有按键被按下
 bool kbhit() {
   termios term;
   tcgetattr(0, &term);
@@ -77,12 +76,11 @@ bool kbhit() {
   return byteswaiting > 0;
 }
 
-//使用Eigen库进行的相机标定，通过对初始的相机标定矩阵进行一系列变换来实现不同的校正效果。
 void CalibrationInit(Eigen::Matrix4d json_param) {
   Eigen::Matrix4d init_cali;
   init_cali << 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1;
-  calibration_matrix_ = json_param;
-  orign_calibration_matrix_ = json_param;
+  calibration_matrix_ = json_param; //读取初始化矩阵
+  orign_calibration_matrix_ = json_param;//记录原始的标定矩阵
   modification_list_.reserve(12);
   for (int32_t i = 0; i < 12; i++) {
     std::vector<int> transform_flag(6, 0);
@@ -105,7 +103,6 @@ void CalibrationInit(Eigen::Matrix4d json_param) {
   std::cout << "=>Calibration scale Init!\n";
 }
 
-//使用了Eigen库进行矩阵运算，实现了对相机标定结果的调整和校正。
 void CalibrationScaleChange() {
   Eigen::Matrix4d init_cali;
   init_cali << 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1;
@@ -131,8 +128,6 @@ void CalibrationScaleChange() {
   std::cout << "=>Calibration scale update done!\n";
 }
 
-//saveResult(const int &frame_id)函数用于保存相机标定结果到文件中。它首先构造了保存文件的文件名，然后打开文件流。
-//如果文件无法打开，则输出错误信息并返回。接着，它将标定结果以矩阵形式写入文件，并以普通格式和 JSON 格式分别输出。最后，关闭文件流。
 void saveResult(const int &frame_id) {
   std::string file_name =
       "lidar2lidar_extrinsic_" + std::to_string(frame_id) + ".txt";
@@ -170,13 +165,11 @@ void saveResult(const int &frame_id) {
   fCalib.close();
 }
 
-//ManualCalibration(int key_input)函数实现了手动调整相机标定的功能。它通过接收按键输入来选择要应用的标定变换。
-//具体来说，它根据输入的按键来选择对应的标定变换，并将当前标定矩阵乘以该变换矩阵。如果输入的按键与已定义的标定变换匹配，则返回 true，否则返回 false。
 bool ManualCalibration(int key_input) {
   char table[] = {'q', 'a', 'w', 's', 'e', 'd', 'r', 'f', 't', 'g', 'y', 'h'};
   bool real_hit = false;
   for (int32_t i = 0; i < 12; i++) {
-    if (key_input == table[i]) {
+    if (key_input == table[i]) {//标定人员点击了哪个键，就对应需要修改标定矩阵的一个“更改”
       calibration_matrix_ = calibration_matrix_ * modification_list_[i];
       real_hit = true;
     }
@@ -184,8 +177,7 @@ bool ManualCalibration(int key_input) {
   return real_hit;
 }
 
-//将灰度值转换为RGB颜色值的函数。该函数接受一个0到255之间的整数参数val，表示灰度值。
-RGB GreyToColorMix(int val) {
+RGB GreyToColorMix(int val) {//对点云的颜色进行处理（改色）这个处理我觉得不太适用于我们的情况。
   int r, g, b;
   if (val < 128) {
     r = 0;
@@ -215,13 +207,11 @@ RGB GreyToColorMix(int val) {
   return rgb;
 }
 
-//用于检查指定文件是否存在
 bool is_exists(const std::string &name) {
   std::ifstream f(name.c_str());
   return f.good();
 }
 
-//加载里程计数据，提取时间戳和位姿信息，并存储在相应的数据结构中，以便后续处理和分析
 void LoadOdometerData(const std::string odometer_file,
                       std::vector<std::string> &timestamp,
                       std::vector<Eigen::Matrix4d> &lidar_poses) {
@@ -237,17 +227,16 @@ void LoadOdometerData(const std::string odometer_file,
     std::string timeStr;
     ss >> timeStr;
     timestamp.emplace_back(timeStr);
-    Eigen::Matrix4d Ti = Eigen::Matrix4d::Identity();
+    Eigen::Matrix4d Ti = Eigen::Matrix4d::Identity(); // 初始化一个变换矩阵，就是标定数据中的一行
     ss >> Ti(0, 0) >> Ti(0, 1) >> Ti(0, 2) >> Ti(0, 3) >> Ti(1, 0) >>
         Ti(1, 1) >> Ti(1, 2) >> Ti(1, 3) >> Ti(2, 0) >> Ti(2, 1) >> Ti(2, 2) >>
-        Ti(2, 3);
+        Ti(2, 3);// 根据这行代码可以看出标定数据的格式是四行四列的矩阵，按行读取
     lidar_poses.emplace_back(Ti);
   }
   file.close();
 }
 
-//对输入的点云数据进行下采样，使用 VoxelGrid 滤波器将原始的点云数据根据指定的体素大小进行降采样，并将结果存储在输出点云out_cloud中。
-void PointCloudDownSampling(
+void PointCloudDownSampling(//根据 voxel_size 下采样点云
     const pcl::PointCloud<pcl::PointXYZI>::Ptr &in_cloud, double voxel_size,
     pcl::PointCloud<pcl::PointXYZI>::Ptr &out_cloud) {
   pcl::VoxelGrid<pcl::PointXYZI> sor;
@@ -256,7 +245,6 @@ void PointCloudDownSampling(
   sor.filter(*out_cloud);
 }
 
-//基于给定的区域（ROI）对输入的点云数据进行过滤，并将符合条件的点云数据存储在输出点云数据中。
 void PointCloudFilterByROI(const pcl::PointCloud<pcl::PointXYZI>::Ptr &in_cloud,
                            const PointCloudBbox &roi,
                            pcl::PointCloud<pcl::PointXYZI>::Ptr &out_cloud) {
@@ -272,10 +260,9 @@ void PointCloudFilterByROI(const pcl::PointCloud<pcl::PointXYZI>::Ptr &in_cloud,
   }
 }
 
-//加载激光雷达的点云数据，对数据进行下采样和ROI过滤，并存储处理后的点云数据和对应的激光雷达姿态变换矩阵。
 void LoadLidarPCDs(const std::string &pcds_dir,
                    const std::vector<std::string> &timestamp,
-                   const std::vector<Eigen::Matrix4d> &lidar_poses_ori,
+                   const std::vector<Eigen::Matrix4d> &lidar_poses_ori,// 激光雷达位姿数据
                    std::vector<pcl::PointCloud<pcl::PointXYZI>> &pcds,
                    std::vector<Eigen::Matrix4d> &lidar_poses) {
   if (lidar_poses_ori.size() == 0)
@@ -287,60 +274,98 @@ void LoadLidarPCDs(const std::string &pcds_dir,
   pcl::PointCloud<pcl::PointXYZI>::Ptr filter_cloud_roi(
       new pcl::PointCloud<pcl::PointXYZI>);
 
-  Eigen::Matrix4d first_pose = lidar_poses_ori[0];
+  Eigen::Matrix4d first_pose = lidar_poses_ori[0];//从激光雷达位姿数据中抽出第一帧 4x4矩阵
   for (size_t i = 0; i < timestamp.size(); ++i) {
-    if (i % 20 != 0)
+    // DEBUG DAI:
+    if (i % 10 != 0)//每隔20个时间处理一次
       continue;
-    std::string lidar_file_name = pcds_dir + "/" + timestamp[i] + ".pcd";
+    std::string lidar_file_name = pcds_dir + "/" + timestamp[i] + ".pcd";//获取点云帧的文件名
     if (is_exists(lidar_file_name)) {
       if (pcl::io::loadPCDFile(lidar_file_name, *cloud) < 0) {
         std::cout << "can not open " << lidar_file_name << std::endl;
         continue;
       }
-    } else
+    } else//文件不存在
       continue;
-
-    //对激光雷达数据进行下采样处理，然后根据指定的 ROI 区域进行过滤，并保存过滤后的点云数据和更新的激光雷达位置信息。
-    PointCloudDownSampling(cloud, 0.7, filter_cloud); //传参：激光雷达数据点云、采样率、存储下采样后数据的变量
-    PointCloudBbox roi; //表示一个区域roi的边界框,指定边界框在三维空间中的最大和最小的 x、y、z 坐标值
-    roi.max_x = 20;
-    roi.min_x = -20;
-    //std::cout << "changed max x to 10."  << std::endl;
+    //当成功读取点云数据之后，进行下面的代码
+    PointCloudDownSampling(cloud, 0.5, filter_cloud);//下采样
+    PointCloudBbox roi;//我认为在初期进行标定的时候，是可以充分利用远端的数据的。远端的数据对于角度的调整更敏感
+    roi.max_x = 30;
+    roi.min_x = 5;
+    std::cout << "Changed max x to 10." << std::endl;
     roi.max_y = 20;
     roi.min_y = -20;
     roi.max_z = 5;
     roi.min_z = -5;
-    PointCloudFilterByROI(filter_cloud, roi, filter_cloud_roi);  
-    pcds.push_back(*filter_cloud_roi); 
-    lidar_poses.push_back(first_pose.inverse().eval() * lidar_poses_ori[i]);
+    PointCloudFilterByROI(filter_cloud, roi, filter_cloud_roi);
+    pcds.push_back(*filter_cloud_roi);
+    lidar_poses.push_back(first_pose.inverse().eval() * lidar_poses_ori[i]);//第一帧姿态的逆矩阵 乘以 后面每帧的姿态
+    // lidar_poses[0] 是单位阵
+    // lidar_poses[1] 是从第一帧位姿转换到第二帧位姿的增量转换矩阵
+
 
     printf("\rload: %lu/%lu, %s", i, timestamp.size() - 1,
            lidar_file_name.c_str());
   }
 }
 
-//实现了激光雷达数据的处理和可视化操作，包括点云变换、边界检查、数据上传等功能。
+int RemapIntensity(int value)
+{
+  // remap a int value from 0 to 50 to 0 to 255, and when a velue is bigger than 50, it will be set to 255
+  int new_value = 0;
+  if (value > 50)
+    new_value = 255;
+  else
+    new_value = int(value * 255 / 50);
+
+  return new_value;
+}
+
 int ProcessLidarFrame(const std::vector<pcl::PointCloud<pcl::PointXYZI>> &pcds,
                       const std::vector<Eigen::Matrix4d> &lidar_poses,
                       const Eigen::Matrix4d &calibration_matrix_,
                       const bool &diaplay_mode) {
-  for (size_t i = 0; i < pcds.size(); i++) {
-    Eigen::Matrix4d T = lidar_poses[i];
-    T *= calibration_matrix_;
+
+  // DEBUG DAI: get the intensity range of the first frame
+  int min_intensity = 0;
+  int max_intensity = 0;
+  for (const auto &src_pt : pcds[0].points) {
+    if (!std::isfinite(src_pt.x) || !std::isfinite(src_pt.y) ||
+        !std::isfinite(src_pt.z))
+      continue;
+    if (src_pt.intensity < min_intensity)
+      min_intensity = src_pt.intensity;
+    if (src_pt.intensity > max_intensity)
+      max_intensity = src_pt.intensity;
+  }
+  std::cout << "min_intensity: " << min_intensity << std::endl;
+  std::cout << "max_intensity: " << max_intensity << std::endl;
+  
+  for (size_t i = 0; i < pcds.size(); i++) {// 对每个点云都进行处理
+    // i is the index of pcd, corresponding to a pose
+    // 取出当前帧的相对于上一帧的增量变换矩阵
+    Eigen::Matrix4d T = lidar_poses[i];//相较于上一帧的增量变换矩阵
+    // T 是当前帧点云对应的姿态的齐次坐标表示（对应IMU坐标系到世界坐标系的变换矩阵）
+    T *= calibration_matrix_;// T = T * calibration_matrix 
 
     for (const auto &src_pt : pcds[i].points) {
       if (!std::isfinite(src_pt.x) || !std::isfinite(src_pt.y) ||
           !std::isfinite(src_pt.z))
         continue;
-      pcl::PointXYZI dst_pt;
+      pcl::PointXYZI dst_pt;// destination point = R * src_pt
       Eigen::Vector3d p(src_pt.x, src_pt.y, src_pt.z);
       Eigen::Vector3d p_res;
       p_res = T.block<3, 3>(0, 0) * p + T.block<3, 1>(0, 3);
+      // p: point in pointcloud (lidar coornidate system)
+      // p_res = lidar_poses[i]<3,3> * calibration_mtrix<3,3> * p + transition
+      // 先将点云中的某个点变换到imu坐标系中，然后再将imu坐标系中的一个点转换到原始的坐标系中（本地坐标系中）
 
       dst_pt.x = p_res(0);
       dst_pt.y = p_res(1);
       dst_pt.z = p_res(2);
-      dst_pt.intensity = src_pt.intensity;
+      // DEBUG DAI: REMAP INTENSITY
+      // dst_pt.intensity = src_pt.intensity;
+      dst_pt.intensity = RemapIntensity(src_pt.intensity);
 
       double min_x, min_y, min_z, max_x, max_y, max_z;
       all_octree->getBoundingBox(min_x, min_y, min_z, max_x, max_y, max_z);
@@ -349,14 +374,73 @@ int ProcessLidarFrame(const std::vector<pcl::PointCloud<pcl::PointXYZI>> &pcds,
       {
         all_octree->addPointToCloud(dst_pt, cloudLidar);
       }
-    }
-  }
+      // // DEBUG DAI: add the point [0,0,0] into the cloudlidar
+      // Eigen::Vector3d p_pose;
+      // p_pose = T.block<3, 1>(0, 3);//转换之后的点
+      // pcl::PointXYZI zero_pt;
+      // zero_pt.x = p_pose(0);
+      // zero_pt.y = p_pose(1);
+      // zero_pt.z = p_pose(2);
+      // zero_pt.intensity = (int) 255;
+      // all_octree->addPointToCloud(zero_pt, cloudLidar);
+
+      // // DEBUG DAI: add the pose point into the cloudlidar
+      // pcl::PointXYZI pose_pt;
+      // pose_pt.x = dai_trans(0);
+      // pose_pt.y = dai_trans(1);
+      // pose_pt.z = dai_trans(2)+1.0;// make z bigger to make it visible
+      // pose_pt.intensity = (int) 255;
+      // all_octree->addPointToCloud(pose_pt, cloudLidar);
+    }// end for one frame of pcd
+  }// end for all pcds
 
   if (target_vertexBuffer_ != nullptr)
     delete (target_vertexBuffer_);
   if (target_colorBuffer_ != nullptr)
     delete (target_colorBuffer_);
 
+  int lidarPointNum = cloudLidar->points.size(); // the number of lidar points, not including the zero point and pose points
+  // deal with zeros points and pose points
+  for (size_t i = 0; i < pcds.size(); i++) {// 对每个点云都进行处理
+    // i is the index of pcd, corresponding to a pose
+    // 取出当前帧的相对于上一帧的增量变换矩阵
+    Eigen::Matrix4d T = lidar_poses[i];//相较于上一帧的增量变换矩阵
+    Eigen::Vector3d dai_trans = T.block<3,1>(0, 3); // pose 的平移量
+    // T 是当前帧点云对应的姿态的齐次坐标表示（对应IMU坐标系到世界坐标系的变换矩阵）
+    T *= calibration_matrix_;// T = T * calibration_matrix 
+
+    // DEBUG DAI: add the point [0,0,0] into the cloudlidar
+    Eigen::Vector3d p_pose;
+    p_pose = T.block<3, 1>(0, 3);//转换之后的点
+    pcl::PointXYZI zero_pt;
+    zero_pt.x = p_pose(0);
+    zero_pt.y = p_pose(1);
+    zero_pt.z = p_pose(2);
+    zero_pt.intensity = (int) 255;
+    all_octree->addPointToCloud(zero_pt, cloudLidar);
+
+  }// end for all pcds
+  int zeroPointNum = cloudLidar->points.size() - lidarPointNum; // the number of zero points
+  for (size_t i = 0; i < pcds.size(); i++) {// 对每个点云都进行处理
+    // i is the index of pcd, corresponding to a pose
+    // 取出当前帧的相对于上一帧的增量变换矩阵
+    Eigen::Matrix4d T = lidar_poses[i];//相较于上一帧的增量变换矩阵
+    Eigen::Vector3d dai_trans = T.block<3,1>(0, 3); // pose 的平移量
+    // T 是当前帧点云对应的姿态的齐次坐标表示（对应IMU坐标系到世界坐标系的变换矩阵）
+    T *= calibration_matrix_;// T = T * calibration_matrix 
+
+    // DEBUG DAI: add the pose point into the cloudlidar
+    pcl::PointXYZI pose_pt;
+    pose_pt.x = dai_trans(0);
+    pose_pt.y = dai_trans(1);
+    pose_pt.z = dai_trans(2)+2.0;// make z bigger to make it visible
+    pose_pt.intensity = (int) 255;
+    all_octree->addPointToCloud(pose_pt, cloudLidar);
+
+  }// end for all pcds
+  int posePointNum = cloudLidar->points.size() - lidarPointNum - zeroPointNum; // the number of pose points
+
+  // Part one: render the lidar points
   int pointsNum = cloudLidar->points.size();
 
   pangolin::GlBuffer *vertexbuffer = new pangolin::GlBuffer(
@@ -366,7 +450,8 @@ int ProcessLidarFrame(const std::vector<pcl::PointCloud<pcl::PointXYZI>> &pcds,
 
   float *dataUpdate = new float[pointsNum * 3];
   unsigned char *colorUpdate = new unsigned char[pointsNum * 3];
-  for (int ipt = 0; ipt < pointsNum; ipt++) {
+  // 对所有点分别进行处理，存入dataUpdate和colorUpdate中
+  for (int ipt = 0; ipt < lidarPointNum; ipt++) {
     Eigen::Vector4d pointPos(cloudLidar->points[ipt].x,
                              cloudLidar->points[ipt].y,
                              cloudLidar->points[ipt].z, 1.0);
@@ -374,7 +459,7 @@ int ProcessLidarFrame(const std::vector<pcl::PointCloud<pcl::PointXYZI>> &pcds,
     dataUpdate[ipt * 3 + 1] = pointPos.y();
     dataUpdate[ipt * 3 + 2] = pointPos.z();
 
-    if (diaplay_mode) {
+    if (diaplay_mode) {// display mode is ont intensity mode
 
       colorUpdate[ipt * 3 + 0] = static_cast<unsigned char>(0);
       colorUpdate[ipt * 3 + 1] = static_cast<unsigned char>(0);
@@ -386,7 +471,69 @@ int ProcessLidarFrame(const std::vector<pcl::PointCloud<pcl::PointXYZI>> &pcds,
       }
     }
   }
+  // Part two: render the zeros points and pose points with different color
+  for (int ipt = lidarPointNum; ipt < lidarPointNum + zeroPointNum; ipt++) {
+    Eigen::Vector4d pointPos(cloudLidar->points[ipt].x,
+                             cloudLidar->points[ipt].y,
+                             cloudLidar->points[ipt].z, 1.0);
+    dataUpdate[ipt * 3 + 0] = pointPos.x();
+    dataUpdate[ipt * 3 + 1] = pointPos.y();
+    dataUpdate[ipt * 3 + 2] = pointPos.z();
+    if (diaplay_mode) {// display mode is ont intensity mode
 
+      colorUpdate[ipt * 3 + 0] = static_cast<unsigned char>(0);
+      colorUpdate[ipt * 3 + 1] = static_cast<unsigned char>(0);
+      colorUpdate[ipt * 3 + 2] = static_cast<unsigned char>(255);
+    } else {// [255, 0, 0]
+      for (int k = 0; k < 3; k++) {
+        if (k == 0)
+        {
+          colorUpdate[ipt * 3 + k] = static_cast<unsigned char>(255); // red
+        }
+        else if (k == 1)
+        {
+          colorUpdate[ipt * 3 + k] = static_cast<unsigned char>(0); 
+        }
+        else
+        {
+          colorUpdate[ipt * 3 + k] = static_cast<unsigned char>(0); 
+        }
+      }
+    }
+  }
+
+  for (int ipt = lidarPointNum + zeroPointNum; ipt < pointsNum; ipt++) {
+    Eigen::Vector4d pointPos(cloudLidar->points[ipt].x,
+                             cloudLidar->points[ipt].y,
+                             cloudLidar->points[ipt].z, 1.0);
+    dataUpdate[ipt * 3 + 0] = pointPos.x();
+    dataUpdate[ipt * 3 + 1] = pointPos.y();
+    dataUpdate[ipt * 3 + 2] = pointPos.z();
+    if (diaplay_mode) {// display mode is ont intensity mode
+
+      colorUpdate[ipt * 3 + 0] = static_cast<unsigned char>(0);
+      colorUpdate[ipt * 3 + 1] = static_cast<unsigned char>(0);
+      colorUpdate[ipt * 3 + 2] = static_cast<unsigned char>(255);
+    } else {// [255, 0, 0]
+      for (int k = 0; k < 3; k++) {
+        if (k == 0)
+        {
+          colorUpdate[ipt * 3 + k] = static_cast<unsigned char>(0); // red
+        }
+        else if (k == 1)
+        {
+          colorUpdate[ipt * 3 + k] = static_cast<unsigned char>(255); 
+        }
+        else
+        {
+          colorUpdate[ipt * 3 + k] = static_cast<unsigned char>(0); 
+        }
+      }
+    }
+  }
+
+
+  // 对所有数据完成处理，并上传数据，用于渲染
   (vertexbuffer)->Upload(dataUpdate, sizeof(float) * 3 * pointsNum, 0);
   (colorbuffer)->Upload(colorUpdate, sizeof(unsigned char) * 3 * pointsNum, 0);
 
@@ -411,19 +558,18 @@ int main(int argc, char **argv) {
          << endl;
     return 0;
   }
-  //根据命令行传入的参数，加载外部的激光雷达数据、位姿数据和外部参数，并输出加载的外部参数。
+
   string lidar_dir = argv[1];
   string lidar_pose_dir = argv[2];
   string extrinsic_json = argv[3];
   Eigen::Matrix4d json_param;
   LoadExtrinsic(extrinsic_json, json_param);
   std::vector<std::string> timestamp;
-  std::vector<Eigen::Matrix4d> lidar_poses_ori;
+  std::vector<Eigen::Matrix4d> lidar_poses_ori;// 4x4矩阵
   // LoadOdometerData(lidar_pose_dir, json_param, timestamp, lidar_poses_ori);
-  LoadOdometerData(lidar_pose_dir, timestamp, lidar_poses_ori);
+  LoadOdometerData(lidar_pose_dir, timestamp, lidar_poses_ori);// 将激光雷达位姿数据从文件中读取到 lidar_poses_ori
   std::cout << json_param << std::endl;
 
-  //加载激光雷达的点云数据和位姿数据
   std::vector<pcl::PointCloud<pcl::PointXYZI>> pcds;
   std::vector<Eigen::Matrix4d> lidar_poses;
   LoadLidarPCDs(lidar_dir, timestamp, lidar_poses_ori, pcds, lidar_poses);
@@ -431,18 +577,15 @@ int main(int argc, char **argv) {
   std::cout << lidar_poses.size() << std::endl;
   all_octree->setInputCloud(cloudLidar);
 
-  //为接下来的处理准备了数据，并创建了一个窗口用于可视化展示。
   cout << "Loading data completed!" << endl;
   CalibrationInit(json_param);
   const int width = 1920, height = 1280;
   pangolin::CreateWindowAndBind("lidar2imu player", width, height);
 
-  //使用 OpenGL 函数来设置深度测试的相关参数
   glEnable(GL_DEPTH_TEST);
   glDepthMask(GL_TRUE);
   glDepthFunc(GL_LESS);
 
-  //使用了 Pangolin 库来设置相机的投影矩阵和观察矩阵，并创建了一个显示窗口。实现了对相机投影矩阵和观察矩阵的设置，并创建了一个名为 d_cam 的显示窗口，最后设置了背景颜色并创建了一个单位变换矩阵。
   pangolin::OpenGlRenderState s_cam(
       pangolin::ProjectionMatrix(1024, 768, 500, 500, 512, 389, 0.1, 1000),
       // pangolin::ModelViewLookAt(0, 0, 100, 0, 0, 0, 0.0, 1.0, 0.0));
@@ -456,7 +599,6 @@ int main(int argc, char **argv) {
   Twc.SetIdentity();
 
   // control panel
-  //创建了一个名为 "cp" 的控制面板，并在面板上添加了四个控件。
   pangolin::CreatePanel("cp").SetBounds(pangolin::Attach::Pix(30), 1.0, 0.0,
                                         pangolin::Attach::Pix(150));
   pangolin::Var<bool> displayMode("cp.Intensity Color", display_mode_,
@@ -502,7 +644,6 @@ int main(int argc, char **argv) {
       ProcessLidarFrame(pcds, lidar_poses, calibration_matrix_, display_mode_);
 
   std::cout << "\n=>START\n";
-  //主要用于图形界面的交互和控制，通过不同的按钮和控件来实现对点云显示效果和校准参数的调整。
   while (!pangolin::ShouldQuit()) {
     s_cam.Follow(Twc);
     d_cam.Activate(s_cam);
@@ -579,7 +720,6 @@ int main(int argc, char **argv) {
       }
     }
 
-    //用于绘制激光雷达点云的部分。
     // draw lidar points
     glDisable(GL_LIGHTING);
     glPointSize(point_size_);
@@ -603,8 +743,7 @@ int main(int argc, char **argv) {
   }
 
   // delete[] imageArray;
-  //使用了Eigen库中的Matrix4d类型，创建了一个名为transform的4x4双精度浮点型变换矩阵，并将其初始化为calibration_matrix_。
-  //接着，通过cout打印输出了最终的变换矩阵transform的数值，输出格式为4x4的矩阵形式。这样就可以在控制台上查看和验证最终的变换矩阵。
+
   Eigen::Matrix4d transform = calibration_matrix_;
   cout << "\nFinal Transfromation Matrix:\n" << transform << std::endl;
 
