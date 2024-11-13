@@ -64,6 +64,7 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr
 pcl::octree::OctreePointCloudSearch<pcl::PointXYZI>::Ptr
     all_octree(new pcl::octree::OctreePointCloudSearch<pcl::PointXYZI>(0.05));
 
+//定义了一个函数 kbhit()，用于检测键盘输入是否有按键被按下
 bool kbhit() {
   termios term;
   tcgetattr(0, &term);
@@ -76,6 +77,7 @@ bool kbhit() {
   return byteswaiting > 0;
 }
 
+//使用Eigen库进行的相机标定，通过对初始的相机标定矩阵进行一系列变换来实现不同的校正效果。
 void CalibrationInit(Eigen::Matrix4d json_param) {
   Eigen::Matrix4d init_cali;
   init_cali << 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1;
@@ -103,6 +105,7 @@ void CalibrationInit(Eigen::Matrix4d json_param) {
   std::cout << "=>Calibration scale Init!\n";
 }
 
+//使用了Eigen库进行矩阵运算，实现了对相机标定结果的调整和校正。
 void CalibrationScaleChange() {
   Eigen::Matrix4d init_cali;
   init_cali << 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1;
@@ -128,6 +131,8 @@ void CalibrationScaleChange() {
   std::cout << "=>Calibration scale update done!\n";
 }
 
+//saveResult(const int &frame_id)函数用于保存相机标定结果到文件中。它首先构造了保存文件的文件名，然后打开文件流。
+//如果文件无法打开，则输出错误信息并返回。接着，它将标定结果以矩阵形式写入文件，并以普通格式和 JSON 格式分别输出。最后，关闭文件流。
 void saveResult(const int &frame_id) {
   std::string file_name =
       "lidar2lidar_extrinsic_" + std::to_string(frame_id) + ".txt";
@@ -165,6 +170,8 @@ void saveResult(const int &frame_id) {
   fCalib.close();
 }
 
+//ManualCalibration(int key_input)函数实现了手动调整相机标定的功能。它通过接收按键输入来选择要应用的标定变换。
+//具体来说，它根据输入的按键来选择对应的标定变换，并将当前标定矩阵乘以该变换矩阵。如果输入的按键与已定义的标定变换匹配，则返回 true，否则返回 false。
 bool ManualCalibration(int key_input) {
   char table[] = {'q', 'a', 'w', 's', 'e', 'd', 'r', 'f', 't', 'g', 'y', 'h'};
   bool real_hit = false;
@@ -177,6 +184,7 @@ bool ManualCalibration(int key_input) {
   return real_hit;
 }
 
+//将灰度值转换为RGB颜色值的函数。该函数接受一个0到255之间的整数参数val，表示灰度值。
 RGB GreyToColorMix(int val) {
   int r, g, b;
   if (val < 128) {
@@ -207,11 +215,13 @@ RGB GreyToColorMix(int val) {
   return rgb;
 }
 
+//用于检查指定文件是否存在
 bool is_exists(const std::string &name) {
   std::ifstream f(name.c_str());
   return f.good();
 }
 
+//加载里程计数据，提取时间戳和位姿信息，并存储在相应的数据结构中，以便后续处理和分析
 void LoadOdometerData(const std::string odometer_file,
                       std::vector<std::string> &timestamp,
                       std::vector<Eigen::Matrix4d> &lidar_poses) {
@@ -236,6 +246,7 @@ void LoadOdometerData(const std::string odometer_file,
   file.close();
 }
 
+//对输入的点云数据进行下采样，使用 VoxelGrid 滤波器将原始的点云数据根据指定的体素大小进行降采样，并将结果存储在输出点云out_cloud中。
 void PointCloudDownSampling(
     const pcl::PointCloud<pcl::PointXYZI>::Ptr &in_cloud, double voxel_size,
     pcl::PointCloud<pcl::PointXYZI>::Ptr &out_cloud) {
@@ -245,6 +256,7 @@ void PointCloudDownSampling(
   sor.filter(*out_cloud);
 }
 
+//基于给定的区域（ROI）对输入的点云数据进行过滤，并将符合条件的点云数据存储在输出点云数据中。
 void PointCloudFilterByROI(const pcl::PointCloud<pcl::PointXYZI>::Ptr &in_cloud,
                            const PointCloudBbox &roi,
                            pcl::PointCloud<pcl::PointXYZI>::Ptr &out_cloud) {
@@ -260,6 +272,7 @@ void PointCloudFilterByROI(const pcl::PointCloud<pcl::PointXYZI>::Ptr &in_cloud,
   }
 }
 
+//加载激光雷达的点云数据，对数据进行下采样和ROI过滤，并存储处理后的点云数据和对应的激光雷达姿态变换矩阵。
 void LoadLidarPCDs(const std::string &pcds_dir,
                    const std::vector<std::string> &timestamp,
                    const std::vector<Eigen::Matrix4d> &lidar_poses_ori,
@@ -287,16 +300,18 @@ void LoadLidarPCDs(const std::string &pcds_dir,
     } else
       continue;
 
-    PointCloudDownSampling(cloud, 0.5, filter_cloud);
-    PointCloudBbox roi;
+    //对激光雷达数据进行下采样处理，然后根据指定的 ROI 区域进行过滤，并保存过滤后的点云数据和更新的激光雷达位置信息。
+    PointCloudDownSampling(cloud, 0.7, filter_cloud); //传参：激光雷达数据点云、采样率、存储下采样后数据的变量
+    PointCloudBbox roi; //表示一个区域roi的边界框,指定边界框在三维空间中的最大和最小的 x、y、z 坐标值
     roi.max_x = 20;
     roi.min_x = -20;
+    //std::cout << "changed max x to 10."  << std::endl;
     roi.max_y = 20;
     roi.min_y = -20;
     roi.max_z = 5;
     roi.min_z = -5;
-    PointCloudFilterByROI(filter_cloud, roi, filter_cloud_roi);
-    pcds.push_back(*filter_cloud_roi);
+    PointCloudFilterByROI(filter_cloud, roi, filter_cloud_roi);  
+    pcds.push_back(*filter_cloud_roi); 
     lidar_poses.push_back(first_pose.inverse().eval() * lidar_poses_ori[i]);
 
     printf("\rload: %lu/%lu, %s", i, timestamp.size() - 1,
@@ -304,6 +319,7 @@ void LoadLidarPCDs(const std::string &pcds_dir,
   }
 }
 
+//实现了激光雷达数据的处理和可视化操作，包括点云变换、边界检查、数据上传等功能。
 int ProcessLidarFrame(const std::vector<pcl::PointCloud<pcl::PointXYZI>> &pcds,
                       const std::vector<Eigen::Matrix4d> &lidar_poses,
                       const Eigen::Matrix4d &calibration_matrix_,
@@ -395,7 +411,7 @@ int main(int argc, char **argv) {
          << endl;
     return 0;
   }
-
+  //根据命令行传入的参数，加载外部的激光雷达数据、位姿数据和外部参数，并输出加载的外部参数。
   string lidar_dir = argv[1];
   string lidar_pose_dir = argv[2];
   string extrinsic_json = argv[3];
@@ -407,6 +423,7 @@ int main(int argc, char **argv) {
   LoadOdometerData(lidar_pose_dir, timestamp, lidar_poses_ori);
   std::cout << json_param << std::endl;
 
+  //加载激光雷达的点云数据和位姿数据
   std::vector<pcl::PointCloud<pcl::PointXYZI>> pcds;
   std::vector<Eigen::Matrix4d> lidar_poses;
   LoadLidarPCDs(lidar_dir, timestamp, lidar_poses_ori, pcds, lidar_poses);
@@ -414,15 +431,18 @@ int main(int argc, char **argv) {
   std::cout << lidar_poses.size() << std::endl;
   all_octree->setInputCloud(cloudLidar);
 
+  //为接下来的处理准备了数据，并创建了一个窗口用于可视化展示。
   cout << "Loading data completed!" << endl;
   CalibrationInit(json_param);
   const int width = 1920, height = 1280;
   pangolin::CreateWindowAndBind("lidar2imu player", width, height);
 
+  //使用 OpenGL 函数来设置深度测试的相关参数
   glEnable(GL_DEPTH_TEST);
   glDepthMask(GL_TRUE);
   glDepthFunc(GL_LESS);
 
+  //使用了 Pangolin 库来设置相机的投影矩阵和观察矩阵，并创建了一个显示窗口。实现了对相机投影矩阵和观察矩阵的设置，并创建了一个名为 d_cam 的显示窗口，最后设置了背景颜色并创建了一个单位变换矩阵。
   pangolin::OpenGlRenderState s_cam(
       pangolin::ProjectionMatrix(1024, 768, 500, 500, 512, 389, 0.1, 1000),
       // pangolin::ModelViewLookAt(0, 0, 100, 0, 0, 0, 0.0, 1.0, 0.0));
@@ -436,6 +456,7 @@ int main(int argc, char **argv) {
   Twc.SetIdentity();
 
   // control panel
+  //创建了一个名为 "cp" 的控制面板，并在面板上添加了四个控件。
   pangolin::CreatePanel("cp").SetBounds(pangolin::Attach::Pix(30), 1.0, 0.0,
                                         pangolin::Attach::Pix(150));
   pangolin::Var<bool> displayMode("cp.Intensity Color", display_mode_,
@@ -481,6 +502,7 @@ int main(int argc, char **argv) {
       ProcessLidarFrame(pcds, lidar_poses, calibration_matrix_, display_mode_);
 
   std::cout << "\n=>START\n";
+  //主要用于图形界面的交互和控制，通过不同的按钮和控件来实现对点云显示效果和校准参数的调整。
   while (!pangolin::ShouldQuit()) {
     s_cam.Follow(Twc);
     d_cam.Activate(s_cam);
@@ -557,6 +579,7 @@ int main(int argc, char **argv) {
       }
     }
 
+    //用于绘制激光雷达点云的部分。
     // draw lidar points
     glDisable(GL_LIGHTING);
     glPointSize(point_size_);
@@ -580,7 +603,8 @@ int main(int argc, char **argv) {
   }
 
   // delete[] imageArray;
-
+  //使用了Eigen库中的Matrix4d类型，创建了一个名为transform的4x4双精度浮点型变换矩阵，并将其初始化为calibration_matrix_。
+  //接着，通过cout打印输出了最终的变换矩阵transform的数值，输出格式为4x4的矩阵形式。这样就可以在控制台上查看和验证最终的变换矩阵。
   Eigen::Matrix4d transform = calibration_matrix_;
   cout << "\nFinal Transfromation Matrix:\n" << transform << std::endl;
 
